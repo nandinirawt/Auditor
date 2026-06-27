@@ -1,4 +1,4 @@
-import { Monitor, Tablet, Smartphone } from "lucide-react";
+import { Monitor, Tablet, Smartphone, ExternalLink } from "lucide-react";
 import { cn } from "../../lib/utils";
 
 export function PageHeader({ title, description, eyebrow, action }) {
@@ -18,8 +18,7 @@ export function PageHeader({ title, description, eyebrow, action }) {
   );
 }
 
-// A stylized capture frame. Real screenshots replace the inner content once the
-// engine phase lands; the chrome + device sizing stay.
+// Placeholder render used when there is no real screenshot yet.
 function FauxPage({ tone = "a" }) {
   const accent = tone === "a" ? "#6366F1" : tone === "b" ? "#A855F7" : "#22D3EE";
   return (
@@ -49,26 +48,39 @@ function FauxPage({ tone = "a" }) {
   );
 }
 
-export function DeviceFrame({ device = "desktop", tone = "a" }) {
+export function DeviceFrame({ device = "desktop", tone = "a", src, domain }) {
   const cfg = {
     desktop: { icon: Monitor, label: "Desktop", w: "1440 × 900", ratio: "aspect-[16/10]", rounded: "rounded-lg" },
     tablet: { icon: Tablet, label: "Tablet", w: "834 × 1112", ratio: "aspect-[3/4]", rounded: "rounded-xl" },
     mobile: { icon: Smartphone, label: "Mobile", w: "390 × 844", ratio: "aspect-[9/19]", rounded: "rounded-2xl" },
   }[device];
   const Icon = cfg.icon;
+  const host = domain || "lumio.store";
+
+  const inner = src ? (
+    <a href={src} target="_blank" rel="noreferrer" className="group block h-full w-full">
+      <img
+        src={src}
+        alt={`${cfg.label} screenshot of ${host}`}
+        loading="lazy"
+        className="h-full w-full object-cover object-top transition-opacity group-hover:opacity-90"
+      />
+    </a>
+  ) : (
+    <FauxPage tone={tone} />
+  );
 
   return (
     <div className="flex flex-col items-center">
-      <div className={cn("w-full overflow-hidden border border-line-strong bg-ink-800 shadow-card", cfg.rounded)}>
+      <div className={cn("group w-full overflow-hidden border border-line-strong bg-ink-800 shadow-card", cfg.rounded)}>
         <div className="flex items-center gap-1.5 border-b border-line bg-ink-700/80 px-3 py-2">
           <span className="h-2.5 w-2.5 rounded-full bg-critical/70" />
           <span className="h-2.5 w-2.5 rounded-full bg-moderate/70" />
           <span className="h-2.5 w-2.5 rounded-full bg-pass/70" />
-          <span className="ml-2 truncate font-mono text-[10px] text-content-dim">lumio.store</span>
+          <span className="ml-2 flex-1 truncate font-mono text-[10px] text-content-dim">{host}</span>
+          {src && <ExternalLink size={11} className="text-content-dim opacity-0 transition-opacity group-hover:opacity-100" />}
         </div>
-        <div className={cfg.ratio}>
-          <FauxPage tone={tone} />
-        </div>
+        <div className={cn(cfg.ratio, "bg-ink")}>{inner}</div>
       </div>
       <div className="mt-2.5 flex items-center gap-2 text-content-muted">
         <Icon size={14} />

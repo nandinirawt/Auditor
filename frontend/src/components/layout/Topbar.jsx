@@ -3,11 +3,15 @@ import { Link, useNavigate } from "react-router-dom";
 import { Menu, Plus, Globe, ChevronDown, LogOut, User as UserIcon, X } from "lucide-react";
 import { Button } from "../ui/Button";
 import { useAuth } from "../../context/AuthContext";
+import { useCurrentAudit } from "../../context/AuditContext";
 import { sampleAudit } from "../../lib/mockData";
 import { scoreBand } from "../../lib/utils";
 
 export function Topbar({ onOpenSidebar }) {
   const { user, isAuthed, logout } = useAuth();
+  const { current } = useCurrentAudit();
+  const siteDomain = current?.domain || sampleAudit.domain;
+  const siteTitle = current?.title || sampleAudit.title;
   const [menuOpen, setMenuOpen] = useState(false);
   const navigate = useNavigate();
   const ref = useRef(null);
@@ -34,8 +38,8 @@ export function Topbar({ onOpenSidebar }) {
           <Globe size={15} />
         </span>
         <div className="min-w-0">
-          <div className="truncate font-display text-sm font-semibold text-content">{sampleAudit.domain}</div>
-          <div className="truncate text-[11px] text-content-muted">{sampleAudit.title}</div>
+          <div className="truncate font-display text-sm font-semibold text-content">{siteDomain}</div>
+          <div className="truncate text-[11px] text-content-muted">{siteTitle}</div>
         </div>
       </div>
 

@@ -2,7 +2,7 @@ import { motion } from "framer-motion";
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, ResponsiveContainer, Tooltip,
 } from "recharts";
-import { Clock, ArrowUpRight, AlertTriangle } from "lucide-react";
+import { Clock, ArrowUpRight, AlertTriangle, Radio, Info } from "lucide-react";
 import { PageHeader, DeviceFrame } from "../../components/dashboard/PageHeader";
 import { FindingsTable } from "../../components/dashboard/FindingsTable";
 import { Card, CardHeader } from "../../components/ui/Card";
@@ -11,6 +11,7 @@ import { StatusDot } from "../../components/ui/Badge";
 import { CardSkeleton } from "../../components/ui/Skeleton";
 import { Button } from "../../components/ui/Button";
 import { useAuditOverview, useFindings } from "../../hooks/useAudit";
+import { useCurrentAudit } from "../../context/AuditContext";
 import { scoreBand, severityMeta } from "../../lib/utils";
 import { Link } from "react-router-dom";
 
@@ -41,6 +42,14 @@ function ChartTooltip({ active, payload, label }) {
 export default function Overview() {
   const { data, isLoading } = useAuditOverview();
   const { data: findings } = useFindings();
+  const { current } = useCurrentAudit();
+
+  const shotMap = {};
+  (current?.screenshots || []).forEach((s) => {
+    shotMap[s.device] = s.url;
+  });
+  const isLive = !!current?.screenshots?.length;
+  const liveDomain = current?.domain;
 
   if (isLoading || !data) {
     return (
@@ -67,7 +76,7 @@ export default function Overview() {
       <PageHeader
         eyebrow="Audit"
         title="Overview"
-        description={`${audit.title} · ${audit.category}`}
+        description={isLive ? `${current.title || liveDomain} · live capture` : `${audit.title} · ${audit.category}`}
         action={
           <Link to="/">
             <Button variant="secondary" size="sm">
@@ -77,8 +86,17 @@ export default function Overview() {
         }
       />
 
+      {isLive && (
+        <div className="mb-5 flex items-start gap-2.5 rounded-xl border border-iris/30 bg-iris/[0.07] px-4 py-3">
+          <Info size={16} className="mt-0.5 shrink-0 text-iris-bright" />
+          <p className="text-sm text-content-muted">
+            Showing live screenshots of <span className="font-medium text-content">{liveDomain}</span>. The scores and
+            findings below are sample data — accessibility, WCAG, and performance analysis arrive in the next engine phase.
+          </p>
+        </div>
+      )}
+
       <div className="grid gap-5 lg:grid-cols-3">
-        {/* Overall score */}
         <Card className="flex flex-col items-center justify-center text-center">
           <div className="mb-3 flex items-center gap-2 text-xs text-content-muted">
             <StatusDot status={audit.status} />
@@ -92,7 +110,6 @@ export default function Overview() {
           <p className="mt-1 text-xs text-content-muted">Overall experience score</p>
         </Card>
 
-        {/* Sub scores */}
         <Card className="lg:col-span-2">
           <CardHeader title="Category scores" subtitle="Across the audited journey" />
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
@@ -123,7 +140,6 @@ export default function Overview() {
                 </motion.div>
               );
             })}
-            {/* issues summary */}
             <div className="panel flex flex-col justify-between p-3.5">
               <span className="text-xs text-content-muted">Open issues</span>
               <div className="mt-2 flex flex-wrap gap-1.5">
@@ -142,18 +158,26 @@ export default function Overview() {
         </Card>
       </div>
 
-      {/* Screenshots */}
       <Card className="mt-5">
-        <CardHeader title="Captured across devices" subtitle="Full-page renders at desktop, tablet, and mobile widths" />
+        <CardHeader
+          title="Captured across devices"
+          subtitle={isLive ? "Live full-page renders of your site — click to open" : "Full-page renders at desktop, tablet, and mobile widths"}
+          action={
+            isLive ? (
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-pass/30 bg-pass/10 px-2.5 py-1 text-xs font-medium text-pass">
+                <Radio size={12} /> Live
+              </span>
+            ) : null
+          }
+        />
         <div className="grid gap-5 sm:grid-cols-3">
-          <DeviceFrame device="desktop" tone="a" />
-          <DeviceFrame device="tablet" tone="b" />
-          <DeviceFrame device="mobile" tone="c" />
+          <DeviceFrame device="desktop" tone="a" src={shotMap.desktop} domain={liveDomain} />
+          <DeviceFrame device="tablet" tone="b" src={shotMap.tablet} domain={liveDomain} />
+          <DeviceFrame device="mobile" tone="c" src={shotMap.mobile} domain={liveDomain} />
         </div>
       </Card>
 
       <div className="mt-5 grid gap-5 lg:grid-cols-5">
-        {/* Trend */}
         <Card className="lg:col-span-2">
           <CardHeader title="Score trend" subtitle="Last 3 audits" />
           <div className="h-52">
@@ -180,7 +204,6 @@ export default function Overview() {
           </div>
         </Card>
 
-        {/* Top issues */}
         <Card className="lg:col-span-3 !p-0">
           <div className="flex items-center justify-between p-5 pb-3">
             <CardHeader title="Top priority issues" subtitle="Critical and serious findings first" icon={AlertTriangle} />
