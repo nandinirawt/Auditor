@@ -104,6 +104,7 @@ def map_results(raw, page_path="/"):
         level = _level_from_tags(v.get("tags", []))
         nodes = v.get("nodes", [])
         first_target = ", ".join(nodes[0]["target"]) if nodes and nodes[0].get("target") else "—"
+        first_html = (nodes[0].get("html") if nodes else "") or ""
         node_count = v.get("nodeCount", len(nodes))
 
         findings.append({
@@ -114,6 +115,7 @@ def map_results(raw, page_path="/"):
             "title": v.get("help") or v.get("description") or v.get("id"),
             "description": v.get("description") or v.get("help") or "",
             "selector": first_target + (f"  (+{node_count - 1} more)" if node_count > 1 else ""),
+            "html": first_html,
             "wcag": primary_sc,
             "level": level if primary_sc else None,
             "page": page_path,

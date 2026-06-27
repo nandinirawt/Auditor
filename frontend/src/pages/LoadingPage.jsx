@@ -78,6 +78,7 @@ export default function LoadingPage() {
           title: res.title,
           screenshots: res.screenshots,
           accessibility: res.accessibility || null,
+          token: res.token || null,
         });
         navigate("/dashboard", { replace: true });
       }, 600);

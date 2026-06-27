@@ -1,8 +1,28 @@
 import { api } from "./client";
 
-// Captures real screenshots of a URL via the backend (Playwright).
-// Returns { url, final_url, title, screenshots: [{ device, url, width, file_size }] }
+// Captures real screenshots + accessibility of a URL via the backend (Playwright).
 export async function runScreenshots(url) {
   const { data } = await api.post("/api/v1/screenshots", { url });
   return data;
+}
+
+// Audit History + selector
+export async function listAudits() {
+  const { data } = await api.get("/api/v1/audits");
+  return data; // { count, audits: [...] }
+}
+
+export async function getAudit(token) {
+  const { data } = await api.get(`/api/v1/audits/${token}`);
+  return data; // full stored audit
+}
+
+export async function deleteAudit(token) {
+  const { data } = await api.delete(`/api/v1/audits/${token}`);
+  return data;
+}
+
+export async function getTrends() {
+  const { data } = await api.get("/api/v1/audits/trends");
+  return data; // { count, series: [...] }
 }
