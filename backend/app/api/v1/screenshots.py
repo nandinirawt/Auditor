@@ -32,6 +32,7 @@ class ScreenshotResponse(BaseModel):
     final_url: str
     title: str
     screenshots: list[ShotOut]
+    accessibility: dict | None = None
 
 
 @router.post("", response_model=ScreenshotResponse, summary="Capture screenshots of a URL")
@@ -70,4 +71,5 @@ async def create_screenshots(payload: ScreenshotRequest, request: Request) -> Sc
         final_url=result["final_url"],
         title=result["title"],
         screenshots=shots,
+        accessibility=result.get("accessibility"),
     )

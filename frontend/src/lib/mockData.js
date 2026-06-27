@@ -278,3 +278,105 @@ export const history = [
   { id: "aud_5c22e7", url: "https://help.northwind.app", domain: "northwind.app", category: "Others", status: "failed", overall: null, accessibility: null, performance: null, date: "2026-05-11T13:48:00Z", issues: null },
   { id: "aud_4b81a0", url: "https://www.lumio.store", domain: "lumio.store", category: "Shopping", status: "completed", overall: 58, accessibility: 51, performance: 72, date: "2026-04-30T11:15:00Z", issues: 53 },
 ];
+
+// ---- Command-center Overview sample data ----
+// Clearly sample until the crawl/axe/Lighthouse engine phases populate them.
+
+export const auditMeta = {
+  auditNumber: 1,
+  pagesCrawled: 18,
+  durationLabel: "38s",
+  industryAverage: 67,
+  grade: "B",
+  confidence: 92,
+  prevOverall: 64,
+};
+
+export const scoreBreakdown = [
+  { key: "accessibility", label: "Accessibility", score: 68, weight: 25 },
+  { key: "performance", label: "Performance", score: 81, weight: 20 },
+  { key: "seo", label: "SEO", score: 90, weight: 15 },
+  { key: "ux", label: "UX", score: 70, weight: 20 },
+  { key: "wcag", label: "WCAG", score: 74, weight: 15 },
+  { key: "competitor", label: "Competitor", score: 62, weight: 5 },
+];
+
+export const executiveSummary = {
+  strengths: [
+    "Strong SEO foundation with clean metadata and semantic titles",
+    "Fast first paint and stable layout on desktop",
+  ],
+  weaknesses: [
+    "Low colour contrast in footer and form placeholders",
+    "Several interactive controls aren't keyboard reachable",
+  ],
+  critical: "The cart toggle and newsletter field are invisible to assistive tech, blocking core flows for screen-reader users.",
+  priority: "Restore a visible focus ring and label every form field — one change clears the most critical violations.",
+};
+
+export const statistics = [
+  { key: "pages", label: "Pages crawled", value: 18 },
+  { key: "internal", label: "Internal links", value: 264 },
+  { key: "external", label: "External links", value: 37 },
+  { key: "buttons", label: "Buttons checked", value: 86 },
+  { key: "forms", label: "Forms analysed", value: 5 },
+  { key: "images", label: "Images analysed", value: 142 },
+  { key: "dom", label: "DOM elements", value: 4831 },
+  { key: "network", label: "Network requests", value: 173 },
+  { key: "rules", label: "Accessibility rules", value: 97 },
+  { key: "screens", label: "Total screenshots", value: 3 },
+];
+
+export const structureTree = {
+  name: "Homepage",
+  children: [
+    { name: "Products", children: [{ name: "Product Detail" }, { name: "Categories" }] },
+    { name: "Search" },
+    { name: "Cart", children: [{ name: "Checkout" }] },
+    { name: "Account", children: [{ name: "Login" }, { name: "Signup" }] },
+    { name: "About" },
+    { name: "Contact" },
+  ],
+};
+
+export const auditTimeline = [
+  { key: "start", label: "Browser started", time: "0.0s" },
+  { key: "home", label: "Homepage loaded", time: "1.8s" },
+  { key: "nav", label: "Navigation opened", time: "3.1s" },
+  { key: "crawl", label: "Key pages crawled", time: "12.4s" },
+  { key: "checkout", label: "Checkout visited", time: "21.0s" },
+  { key: "a11y", label: "Accessibility scan completed", time: "29.6s" },
+  { key: "shots", label: "Screenshots generated", time: "34.2s" },
+  { key: "done", label: "Audit finished", time: "38.4s" },
+];
+
+export const accessibilitySnapshot = {
+  score: 68,
+  critical: 3,
+  contrast: 4,
+  altText: 6,
+  keyboard: 2,
+  topRecommendation: "Add visible focus styles and label all inputs.",
+};
+
+export const wcagSnapshot = {
+  compliance: 74,
+  passed: 40,
+  failed: 9,
+  warnings: 6,
+  criticalViolations: 3,
+  mostViolated: "Perceivable",
+};
+
+export const competitorSnapshot = {
+  industryAverage: 67,
+  you: 72,
+  topCompetitor: { name: "Glowsmith", score: 88 },
+  ranking: 3,
+  totalRanked: 4,
+  improvements: [
+    "Lift accessibility to match category leaders",
+    "Trim hero image weight for faster LCP",
+    "Add descriptive link text site-wide",
+  ],
+};

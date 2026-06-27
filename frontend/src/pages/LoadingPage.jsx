@@ -77,6 +77,7 @@ export default function LoadingPage() {
           domain: deriveDomain(res.final_url || res.url),
           title: res.title,
           screenshots: res.screenshots,
+          accessibility: res.accessibility || null,
         });
         navigate("/dashboard", { replace: true });
       }, 600);

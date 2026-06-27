@@ -1,17 +1,23 @@
 import { useMemo, useState } from "react";
-import { Search, ListFilter } from "lucide-react";
+import { Search, ListFilter, Radio } from "lucide-react";
 import { PageHeader } from "../../components/dashboard/PageHeader";
 import { FindingsTable } from "../../components/dashboard/FindingsTable";
 import { Card } from "../../components/ui/Card";
 import { CardSkeleton } from "../../components/ui/Skeleton";
 import { useFindings } from "../../hooks/useAudit";
+import { useCurrentAudit } from "../../context/AuditContext";
 import { severityMeta, cn } from "../../lib/utils";
 
 const severities = ["critical", "serious", "moderate", "minor"];
 const sources = ["all", "axe", "lighthouse"];
 
 export default function Accessibility() {
-  const { data: findings, isLoading } = useFindings();
+  const { data: mockFindings, isLoading: mockLoading } = useFindings();
+  const { current } = useCurrentAudit();
+  const realFindings = current?.accessibility?.findings || null;
+  const isLive = !!realFindings;
+  const findings = realFindings || mockFindings;
+  const isLoading = isLive ? false : mockLoading;
   const [active, setActive] = useState(new Set());
   const [source, setSource] = useState("all");
   const [q, setQ] = useState("");
@@ -44,7 +50,14 @@ export default function Accessibility() {
       <PageHeader
         eyebrow="Audit"
         title="Accessibility"
-        description="Every issue axe-core and Lighthouse surfaced, with the selector and fix for each."
+        description={isLive
+          ? `Real axe-core scan of ${current?.domain || "your site"} — every violation with its selector and fix.`
+          : "Sample data — run an audit to scan your site with axe-core."}
+        action={isLive ? (
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-pass/30 bg-pass/10 px-2.5 py-1 text-xs font-medium text-pass">
+            <Radio size={12} /> Live · axe-core
+          </span>
+        ) : null}
       />
 
       {isLoading ? (

@@ -63,6 +63,8 @@ async def capture_screenshots(url: str) -> dict:
     except ImportError as exc:  # pragma: no cover - depends on host install
         raise CaptureError("playwright_not_installed") from exc
 
+    from app.services.audit.accessibility import map_results, run_axe
+
     token = uuid.uuid4().hex[:12]
     out_dir = SCREENSHOT_DIR / token
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -70,6 +72,7 @@ async def capture_screenshots(url: str) -> dict:
     shots: list[dict] = []
     title: str | None = None
     final_url = url
+    axe_raw = None
 
     try:
         async with async_playwright() as p:
@@ -119,6 +122,14 @@ async def capture_screenshots(url: str) -> dict:
                             "file_size": fpath.stat().st_size if fpath.exists() else None,
                         }
                     )
+
+                    # Real accessibility scan on the homepage (desktop view).
+                    if device == "desktop" and axe_raw is None:
+                        try:
+                            axe_raw = await run_axe(page)
+                        except Exception:
+                            axe_raw = None
+
                     await context.close()
             finally:
                 await browser.close()
@@ -130,10 +141,18 @@ async def capture_screenshots(url: str) -> dict:
     if not shots:
         raise CaptureError("no_screenshots_produced")
 
+    accessibility = None
+    if axe_raw is not None:
+        try:
+            accessibility = map_results(axe_raw, page_path="/")
+        except Exception:
+            accessibility = None
+
     return {
         "url": url,
         "final_url": final_url,
         "title": title or final_url,
         "token": token,
         "shots": shots,
+        "accessibility": accessibility,
     }

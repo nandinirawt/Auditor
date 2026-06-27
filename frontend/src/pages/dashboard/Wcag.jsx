@@ -1,16 +1,22 @@
 import { useMemo, useState } from "react";
 import { motion } from "framer-motion";
-import { Check, X, Search } from "lucide-react";
+import { Check, X, Search, Radio } from "lucide-react";
 import { PageHeader } from "../../components/dashboard/PageHeader";
 import { Card, CardHeader } from "../../components/ui/Card";
 import { CardSkeleton } from "../../components/ui/Skeleton";
 import { useWcag } from "../../hooks/useAudit";
+import { useCurrentAudit } from "../../context/AuditContext";
 import { cn } from "../../lib/utils";
 
 const levels = ["All", "A", "AA"];
 
 export default function Wcag() {
-  const { data, isLoading } = useWcag();
+  const { data: mockData, isLoading: mockLoading } = useWcag();
+  const { current } = useCurrentAudit();
+  const realWcag = current?.accessibility?.wcag || null;
+  const isLive = !!realWcag;
+  const data = realWcag || mockData;
+  const isLoading = isLive ? false : mockLoading;
   const [level, setLevel] = useState("All");
   const [q, setQ] = useState("");
 
@@ -42,6 +48,11 @@ export default function Wcag() {
         eyebrow="Compliance"
         title="WCAG 2.2"
         description={`Conformance target: Level ${data.level}. ${totalPass} of ${totalAll} evaluated criteria pass (${pct}%).`}
+        action={isLive ? (
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-pass/30 bg-pass/10 px-2.5 py-1 text-xs font-medium text-pass">
+            <Radio size={12} /> Live · from axe-core
+          </span>
+        ) : null}
       />
 
       {/* POUR cards */}
