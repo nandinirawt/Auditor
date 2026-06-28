@@ -172,7 +172,7 @@ export default function BeforeAfter() {
                   <div className="absolute inset-0 overflow-hidden" style={{ clipPath: `inset(0 ${100 - pos}% 0 0)` }}>
                     <img src={preview.after_image} alt="After" className="h-full w-full object-cover object-top" />
                   </div>
-                  <span className="absolute left-3 top-3 rounded-md bg-black/55 px-2 py-0.5 text-[10px] font-semibold text-white backdrop-blur">BEFORE</span>
+                  <span className="absolute left-3 top-3 rounded-md bg-critical/80 px-2 py-0.5 text-[10px] font-semibold text-white backdrop-blur">BEFORE</span>
                   <span className="absolute right-3 top-3 rounded-md bg-pass/80 px-2 py-0.5 text-[10px] font-semibold text-ink backdrop-blur">AFTER</span>
                   <div className="absolute inset-y-0 z-10" style={{ left: `${pos}%`, transform: "translateX(-50%)" }}>
                     <div className="h-full w-0.5 bg-iris-bright shadow-[0_0_12px_rgba(129,140,248,0.8)]" />
@@ -187,8 +187,7 @@ export default function BeforeAfter() {
             {status === "done" && (
               <div className="mt-3 flex items-start gap-2 text-xs text-content-dim">
                 <Info size={13} className="mt-0.5 shrink-0" />
-                The fix was injected into the live DOM and re-scanned. Visual fixes (contrast, focus, size) show in the image; non-visual ones
-                (alt text, labels, language) look identical but the measured drop in violations below is the proof. The patched element is outlined in green.
+                The problem element is outlined in <span className="font-medium text-critical">red</span> on the left and the fixed element in <span className="font-medium text-pass">green</span> on the right. Visual fixes (contrast, focus, size) also change the pixels; non-visual ones (alt text, labels, language) look otherwise identical — the measured drop in violations below is the real proof.
               </div>
             )}
           </Card>

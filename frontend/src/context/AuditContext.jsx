@@ -51,6 +51,12 @@ export function AuditProvider({ children }) {
       title: a.title,
       screenshots: a.screenshots || [],
       accessibility: a.accessibility || null,
+      pages: a.pages || [],
+      performance: a.performance || null,
+      seo: a.seo || null,
+      ux: a.ux || null,
+      structure: a.structure || null,
+      overall: a.overall ?? null,
     });
     return a;
   }, [setCurrent]);

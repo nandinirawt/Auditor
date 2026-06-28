@@ -217,8 +217,14 @@ def map_results(raw, page_path="/"):
         "topRecommendation": findings[0]["title"] if findings else "No accessibility violations found.",
     }
 
+    # Real overall score: a transparent weighted blend of the only two signals
+    # we actually measure today — accessibility (60%) and WCAG conformance (40%).
+    # Performance/SEO/UX fold in later once Lighthouse is wired.
+    overall = round(0.6 * score + 0.4 * compliance)
+
     return {
         "score": score,
+        "overall": overall,
         "counts": counts,
         "findings": findings,
         "wcag": wcag,

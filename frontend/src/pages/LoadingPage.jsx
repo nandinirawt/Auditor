@@ -79,6 +79,12 @@ export default function LoadingPage() {
           screenshots: res.screenshots,
           accessibility: res.accessibility || null,
           token: res.token || null,
+          pages: res.pages || [],
+          performance: res.performance || null,
+          seo: res.seo || null,
+          ux: res.ux || null,
+          structure: res.structure || null,
+          overall: res.overall ?? null,
         });
         navigate("/dashboard", { replace: true });
       }, 600);

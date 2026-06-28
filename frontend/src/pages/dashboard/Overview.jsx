@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { Link } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -9,16 +9,20 @@ import {
   RotateCw, FileDown, GitCompare, Share2, AlertTriangle, ArrowUpRight, ArrowDownRight,
   Sparkles, CheckCircle2, XCircle, Accessibility, ShieldCheck, GitBranch, Activity,
   Crown, Link2, MousePointerClick, FormInput, Image as ImageIcon, Boxes, Network,
-  X, Monitor, Tablet, Smartphone, ChevronRight as ChevR,
+  X, Monitor, Tablet, Smartphone, ChevronRight as ChevR, Volume2, Loader2, Pause,
 } from "lucide-react";
 import { Card, CardHeader } from "../../components/ui/Card";
+import { getNarration } from "../../api/voice";
+import { apiErrorMessage } from "../../api/client";
 import { ScoreRing, AnimatedNumber } from "../../components/ui/ScoreRing";
 import { SeverityPill, StatusDot } from "../../components/ui/Badge";
 import { CardSkeleton } from "../../components/ui/Skeleton";
 import { Button } from "../../components/ui/Button";
 import { useAuditOverview, useFindings } from "../../hooks/useAudit";
 import { useCurrentAudit } from "../../context/AuditContext";
-import { scoreBand, severityMeta, cn } from "../../lib/utils";
+import { useQuery } from "@tanstack/react-query";
+import { getBenchmark } from "../../api/benchmark";
+import { scoreBand, overallScore, severityMeta, cn } from "../../lib/utils";
 import {
   scoreBreakdown, executiveSummary, statistics as statDefs, structureTree,
   auditTimeline, accessibilitySnapshot, wcagSnapshot, competitorSnapshot,
@@ -52,21 +56,109 @@ function StatTile({ icon: Icon, label, value }) {
   );
 }
 
-function BreakdownBar({ label, score, weight, i }) {
+function BreakdownBar({ label, score, weight, i, real }) {
   const b = scoreBand(score);
   return (
     <div>
       <div className="mb-1 flex items-baseline justify-between text-xs">
-        <span className="text-content-muted">{label}</span>
+        <span className="text-content-muted">{label}{real === false && <span className="ml-1.5 text-[9px] uppercase tracking-wide text-content-dim">sample</span>}</span>
         <span className="flex items-baseline gap-2">
           <span className="font-mono text-[10px] text-content-dim">{weight}%</span>
-          <span className="font-mono font-semibold" style={{ color: b.color }}>{score}</span>
+          <span className="font-mono font-semibold" style={{ color: real === false ? "#66728A" : b.color }}>{score}</span>
         </span>
       </div>
       <div className="h-1.5 overflow-hidden rounded-full bg-white/[0.06]">
-        <motion.div className="h-full rounded-full" style={{ background: b.color }}
+        <motion.div className="h-full rounded-full" style={{ background: real === false ? "#3A4255" : b.color, opacity: real === false ? 0.5 : 1 }}
           initial={{ width: 0 }} animate={{ width: `${score}%` }} transition={{ delay: 0.15 + i * 0.05, ease: "easeOut" }} />
       </div>
+    </div>
+  );
+}
+
+function generateExecSummary(a11y) {
+  const snap = a11y.snapshot || {};
+  const counts = a11y.counts || {};
+  const stats = a11y.stats || {};
+  const wcag = a11y.wcag || {};
+  const pl = (n) => (n === 1 ? "" : "s");
+  const strengths = [];
+  const weaknesses = [];
+
+  if (a11y.score >= 90) strengths.push(`Strong accessibility — score ${a11y.score}/100.`);
+  else if (a11y.score >= 75) strengths.push(`Solid accessibility baseline — score ${a11y.score}/100.`);
+  if ((snap.altText || 0) === 0) strengths.push("All images have text alternatives.");
+  if ((snap.contrast || 0) === 0) strengths.push("Text contrast meets WCAG AA.");
+  if ((snap.keyboard || 0) === 0) strengths.push("Interactive elements appear keyboard reachable.");
+  (wcag.principles || []).forEach((p) => {
+    if (p.total && p.passed === p.total) strengths.push(`Full conformance on ${p.label} criteria.`);
+  });
+  if (stats.passes) strengths.push(`${stats.passes} automated accessibility checks passing.`);
+  if (!strengths.length) strengths.push("Few accessibility strengths detected on this page.");
+
+  if (counts.critical) weaknesses.push(`${counts.critical} critical issue${pl(counts.critical)} blocking some users.`);
+  if (snap.contrast) weaknesses.push(`${snap.contrast} colour-contrast failure${pl(snap.contrast)}.`);
+  if (snap.altText) weaknesses.push(`${snap.altText} image${pl(snap.altText)} missing alt text.`);
+  if (snap.keyboard) weaknesses.push(`${snap.keyboard} keyboard or focus issue${pl(snap.keyboard)}.`);
+  const covered = /contrast|alt|image|keyboard|focus/i;
+  (a11y.findings || []).forEach((f) => {
+    if (weaknesses.length >= 4) return;
+    if (f.title && !covered.test(f.title) && !weaknesses.some((w) => w.includes(f.title))) {
+      weaknesses.push(`${f.title}${f.nodeCount > 1 ? ` (${f.nodeCount}×)` : ""}.`);
+    }
+  });
+  if (!weaknesses.length) weaknesses.push("No accessibility violations found on the homepage.");
+
+  const top = (a11y.findings || []).find((f) => f.severity === "critical")
+    || (a11y.findings || []).find((f) => f.severity === "serious")
+    || (a11y.findings || [])[0];
+  const critical = top
+    ? `${top.title}${top.selector ? ` — ${top.selector.split("  (+")[0]}` : ""}`
+    : "No critical issues — the homepage passes the automated checks.";
+
+  return { strengths: strengths.slice(0, 4), weaknesses: weaknesses.slice(0, 4), critical };
+}
+
+function ListenButton({ token }) {
+  const [state, setState] = useState("idle"); // idle | loading | playing | error
+  const [msg, setMsg] = useState("");
+  const audioRef = useRef(null);
+
+  const handleClick = async () => {
+    if (state === "playing") {
+      audioRef.current?.pause();
+      setState("idle");
+      return;
+    }
+    setState("loading");
+    setMsg("");
+    try {
+      const { audio_url } = await getNarration(token);
+      const a = new Audio(audio_url);
+      audioRef.current = a;
+      a.onended = () => setState("idle");
+      a.onerror = () => { setState("error"); setMsg("Couldn't play the audio file."); };
+      await a.play();
+      setState("playing");
+    } catch (e) {
+      const status = e?.response?.status;
+      if (status === 503) setMsg("Add your smallest.ai API key to .env, then restart the backend.");
+      else setMsg(apiErrorMessage(e) || "Couldn't generate audio.");
+      setState("error");
+    }
+  };
+
+  const Icon = state === "loading" ? Loader2 : state === "playing" ? Pause : Volume2;
+  const label = state === "loading" ? "Preparing audio…" : state === "playing" ? "Stop" : "Listen to this audit";
+
+  return (
+    <div>
+      <button onClick={handleClick} disabled={state === "loading" || !token}
+        className="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-iris/40 bg-iris/10 px-3 py-2 text-sm font-medium text-iris-bright transition-colors hover:bg-iris/20 disabled:opacity-60">
+        <Icon size={15} className={state === "loading" ? "animate-spin" : ""} />
+        {label}
+      </button>
+      {state === "error" && msg && <p className="mt-1.5 text-[11px] text-content-dim">{msg}</p>}
+      {state === "playing" && <p className="mt-1.5 text-[11px] text-pass">Playing — voice by smallest.ai</p>}
     </div>
   );
 }
@@ -151,6 +243,14 @@ export default function Overview() {
   const [lightbox, setLightbox] = useState(null);
   const [histRange, setHistRange] = useState(5);
 
+  // Real competitor benchmark (only if the user has added competitors).
+  // Must run before any early return — hooks must be called on every render.
+  const { data: bench } = useQuery({
+    queryKey: ["benchmark", current?.token],
+    queryFn: () => getBenchmark(current.token),
+    enabled: !!current?.token,
+  });
+
   const shotMap = {};
   (current?.screenshots || []).forEach((s) => { shotMap[s.device] = s.url; });
   const isLive = !!current?.screenshots?.length;
@@ -166,32 +266,72 @@ export default function Overview() {
   }
 
   const { audit } = data;
-  const band = scoreBand(audit.scores.overall);
-  const prevDiff = audit.scores.overall - auditMeta.prevOverall;
 
   // Real accessibility/WCAG from the live audit (homepage axe-core scan).
   const a11y = current?.accessibility || null;
   const a11yLive = !!a11y;
+
+  // Real overall score: full weighted blend of every measured component
+  // (accessibility, performance, SEO, UX, WCAG). Falls back to acc+WCAG only.
+  const realOverall = current?.overall
+    ?? (a11yLive ? (a11y.overall ?? overallScore(a11y.score, a11y.wcag?.compliance)) : null);
+  const shownOverall = realOverall != null ? realOverall : audit.scores.overall;
+  const band = scoreBand(shownOverall);
+  const prevDiff = shownOverall - auditMeta.prevOverall;
+
   const realCritical = a11y?.findings?.filter((f) => f.severity === "critical" || f.severity === "serious").slice(0, 5);
   const topFindings = realCritical && realCritical.length
     ? realCritical
     : (findings || []).filter((f) => f.severity === "critical" || f.severity === "serious").slice(0, 5);
 
-  // Weighted breakdown: swap in real accessibility + WCAG, keep the rest sample.
+  // Competitor percentile: % of added competitors this site beats on accessibility.
+  let competitorScore = null;
+  if (bench?.competitors?.length && bench.base?.accessibility != null) {
+    const valid = bench.competitors.filter((c) => c.accessibility != null);
+    if (valid.length) {
+      const beat = valid.filter((c) => bench.base.accessibility >= c.accessibility).length;
+      competitorScore = Math.round((100 * beat) / valid.length);
+    }
+  }
+
+  // Real component scores measured during this audit.
+  const perfScore = current?.performance?.score;
+  const seoScore = current?.seo?.score;
+  const uxScore = current?.ux?.score;
+
+  // Weighted breakdown: every component is real when measured.
   const breakdown = scoreBreakdown.map((s) => {
-    if (a11yLive && s.key === "accessibility") return { ...s, score: a11y.score };
-    if (a11yLive && s.key === "wcag") return { ...s, score: a11y.wcag.compliance };
-    return s;
+    if (a11yLive && s.key === "accessibility") return { ...s, score: a11y.score, real: true };
+    if (a11yLive && s.key === "wcag") return { ...s, score: a11y.wcag.compliance, real: true };
+    if (s.key === "performance" && perfScore != null) return { ...s, score: perfScore, real: true };
+    if (s.key === "seo" && seoScore != null) return { ...s, score: seoScore, real: true };
+    if (s.key === "ux" && uxScore != null) return { ...s, score: uxScore, real: true };
+    if (s.key === "competitor" && competitorScore != null) return { ...s, score: competitorScore, real: true };
+    return { ...s, real: false };
   });
   const accSnap = a11y?.snapshot;
   const wcagSnap = a11y?.wcag;
+  const crawledPages = current?.pages || [];
+  const execSummary = a11yLive ? generateExecSummary(a11y) : executiveSummary;
 
   const finishedDate = new Date(audit.finishedAt).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
+  const struct = current?.structure;
   const stats = statDefs.map((s) => {
-    if (s.key === "screens" && isLive) return { ...s, value: current.screenshots.length };
+    if (s.key === "pages" && isLive) return { ...s, value: 1 + crawledPages.length };
+    if (s.key === "screens" && isLive) return { ...s, value: (current.screenshots?.length || 0) + crawledPages.length };
     if (s.key === "rules" && a11yLive) return { ...s, value: a11y.stats.rulesRun };
+    if (struct) {
+      if (s.key === "internal") return { ...s, value: struct.internalLinks };
+      if (s.key === "external") return { ...s, value: struct.externalLinks };
+      if (s.key === "buttons") return { ...s, value: struct.buttons };
+      if (s.key === "forms") return { ...s, value: struct.forms };
+      if (s.key === "images") return { ...s, value: struct.images };
+      if (s.key === "dom") return { ...s, value: struct.domElements };
+    }
+    if (s.key === "network" && current?.performance?.requests != null) return { ...s, value: current.performance.requests };
     return s;
   });
+  const statsLive = isLive && !!struct;
   const histData = [...history].reverse()
     .filter((h) => h.overall != null)
     .slice(-histRange)
@@ -249,9 +389,8 @@ export default function Overview() {
         <div className="mb-5 flex items-start gap-2.5 rounded-xl border border-iris/30 bg-iris/[0.07] px-4 py-3">
           <Info size={16} className="mt-0.5 shrink-0 text-iris-bright" />
           <p className="text-sm text-content-muted">
-            <span className="font-medium text-content">Live</span> for {domain}: screenshots
-            {a11yLive ? <> and the <span className="font-medium text-content">accessibility + WCAG</span> scan (homepage)</> : null} are real.
-            Performance, SEO, competitor, crawl statistics and the overall score are still sample — they become real in the next engine phases.
+            <span className="font-medium text-content">Live</span> for {domain}: screenshots, <span className="font-medium text-content">accessibility, WCAG, performance, SEO and UX</span> are all measured on the page, and the overall score is a weighted blend of them.
+            Performance reflects this machine's network in a single run, so it's real but rougher than a lab tool like Lighthouse. Competitor turns real once you add competitors.
           </p>
         </div>
       )}
@@ -261,14 +400,18 @@ export default function Overview() {
         <Card className="flex flex-col items-center justify-center text-center lg:col-span-4">
           <div className="mb-2 flex items-center gap-2 text-xs text-content-muted">
             <StatusDot status={audit.status} />
+            {realOverall != null && <span className="inline-flex items-center gap-1 rounded-full border border-pass/30 bg-pass/10 px-2 py-0.5 text-[10px] font-medium text-pass">Live score</span>}
           </div>
-          <ScoreRing score={audit.scores.overall} size={150} stroke={11} />
+          <ScoreRing score={shownOverall} size={150} stroke={11} />
           <div className="mt-3 flex items-center gap-2">
             <span className="grid h-7 w-7 place-items-center rounded-md font-display text-sm font-bold" style={{ color: band.color, background: `${band.color}1f` }}>
-              {auditMeta.grade}
+              {band.grade || auditMeta.grade}
             </span>
             <span className="font-display text-sm font-semibold" style={{ color: band.color }}>{band.label}</span>
           </div>
+          {realOverall != null && (
+            <p className="mt-2 text-[11px] text-content-dim">{current?.overall != null ? "Accessibility · Performance · SEO · UX · WCAG" : "Accessibility + WCAG · measured"}</p>
+          )}
           <div className="mt-4 grid w-full grid-cols-3 gap-2">
             <div className="panel p-2">
               <div className="text-[10px] text-content-muted">Industry</div>
@@ -295,31 +438,37 @@ export default function Overview() {
         </Card>
 
         <Card className="lg:col-span-4">
-          <CardHeader title="Executive summary" subtitle="AI overview · sample" icon={Sparkles} />
+          <CardHeader title="Executive summary" subtitle={a11yLive ? "Generated from this audit" : "AI overview · sample"} icon={Sparkles}
+            action={a11yLive ? <span className="inline-flex items-center gap-1.5 rounded-full border border-pass/30 bg-pass/10 px-2 py-0.5 text-[11px] font-medium text-pass"><Radio size={11} /> Live</span> : null} />
           <div className="space-y-3 text-sm">
             <div>
               <div className="mb-1 flex items-center gap-1.5 text-xs font-medium text-pass"><CheckCircle2 size={13} /> Strengths</div>
               <ul className="space-y-1 text-content-muted">
-                {executiveSummary.strengths.map((s) => <li key={s} className="text-[13px] leading-snug">• {s}</li>)}
+                {execSummary.strengths.map((s) => <li key={s} className="text-[13px] leading-snug">• {s}</li>)}
               </ul>
             </div>
             <div>
               <div className="mb-1 flex items-center gap-1.5 text-xs font-medium text-critical"><XCircle size={13} /> Weaknesses</div>
               <ul className="space-y-1 text-content-muted">
-                {executiveSummary.weaknesses.map((s) => <li key={s} className="text-[13px] leading-snug">• {s}</li>)}
+                {execSummary.weaknesses.map((s) => <li key={s} className="text-[13px] leading-snug">• {s}</li>)}
               </ul>
             </div>
             <div className="rounded-lg border border-critical/25 bg-critical/[0.07] p-2.5">
               <div className="text-[11px] font-semibold text-critical">Most critical</div>
-              <p className="mt-0.5 text-[13px] leading-snug text-content-muted">{executiveSummary.critical}</p>
+              <p className="mt-0.5 text-[13px] leading-snug text-content-muted">{execSummary.critical}</p>
             </div>
+            {isLive && current?.token && (
+              <div className="border-t border-line pt-3">
+                <ListenButton token={current.token} />
+              </div>
+            )}
           </div>
         </Card>
       </div>
 
       {/* ---- Statistics strip ---- */}
       <Card className="mt-5">
-        <CardHeader title="Audit statistics" subtitle="What the crawl examined" action={<SectionChip>sample</SectionChip>} />
+        <CardHeader title="Audit statistics" subtitle={statsLive ? "What this audit measured" : "What the crawl examined"} action={<SectionChip>{statsLive ? "live" : "sample"}</SectionChip>} />
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
           {stats.map((s) => <StatTile key={s.key} icon={STAT_ICONS[s.key] || Boxes} label={s.label} value={s.value} />)}
         </div>
@@ -338,7 +487,44 @@ export default function Overview() {
             <ShotTile key={d} device={d} src={shotMap[d]} domain={domain} onOpen={() => setLightbox({ src: shotMap[d], device: d })} />
           ))}
         </div>
-        <p className="mt-4 text-xs text-content-dim">More pages (product, cart, checkout…) are captured once the multi-page crawler ships.</p>
+
+        {crawledPages.length > 0 ? (
+          <div className="mt-6 border-t border-line pt-5">
+            <div className="mb-3 flex items-center justify-between">
+              <div>
+                <div className="font-display text-sm font-semibold text-content">Other pages crawled</div>
+                <div className="text-xs text-content-muted">Public pages found and scanned · click to enlarge</div>
+              </div>
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-pass/30 bg-pass/10 px-2.5 py-1 text-xs font-medium text-pass"><Radio size={12} /> Live</span>
+            </div>
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              {crawledPages.map((pg) => {
+                const b = scoreBand(pg.accessibility_score);
+                return (
+                  <button key={pg.url} onClick={() => setLightbox({ src: pg.screenshot, device: pg.path })}
+                    className="group overflow-hidden rounded-xl border border-line bg-ink-800 text-left transition-colors hover:border-line-strong">
+                    <div className="aspect-[16/10] w-full overflow-hidden border-b border-line bg-ink">
+                      <img src={pg.screenshot} alt={pg.title || pg.path} className="h-full w-full object-cover object-top transition-transform group-hover:scale-[1.02]" />
+                    </div>
+                    <div className="flex items-center justify-between gap-2 p-2.5">
+                      <span className="min-w-0 truncate font-mono text-[11px] text-content-muted" title={pg.path}>{pg.path}</span>
+                      {pg.accessibility_score != null && (
+                        <span className="shrink-0 font-mono text-xs font-semibold" style={{ color: b.color }}>{pg.accessibility_score}</span>
+                      )}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+            <p className="mt-3 text-xs text-content-dim">
+              The crawler captures public pages a site links to. Login and cart pages that require signing in or items in a basket can't be reached by an automated crawler, so they may not appear.
+            </p>
+          </div>
+        ) : (
+          <p className="mt-4 text-xs text-content-dim">
+            {isLive ? "No additional public pages were found to crawl from the homepage." : "More pages (product, about, pricing…) are captured live once you run an audit."}
+          </p>
+        )}
       </Card>
 
       {/* ---- Critical issues ---- */}

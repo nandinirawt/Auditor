@@ -31,6 +31,15 @@ class ShotOut(BaseModel):
     file_size: int | None = None
 
 
+class PageOut(BaseModel):
+    url: str
+    path: str
+    title: str | None = None
+    screenshot: str
+    accessibility_score: int | None = None
+    issues: int | None = None
+
+
 class ScreenshotResponse(BaseModel):
     token: str
     url: str
@@ -38,6 +47,12 @@ class ScreenshotResponse(BaseModel):
     title: str
     screenshots: list[ShotOut]
     accessibility: dict | None = None
+    pages: list[PageOut] = []
+    performance: dict | None = None
+    seo: dict | None = None
+    ux: dict | None = None
+    structure: dict | None = None
+    overall: int | None = None
 
 
 @router.post("", response_model=ScreenshotResponse, summary="Capture screenshots of a URL")
@@ -80,6 +95,18 @@ async def create_screenshots(payload: ScreenshotRequest, request: Request) -> Sc
         domain = ""
     desktop_url = next((s.url for s in shots if s.device == "desktop"), shots[0].url if shots else None)
 
+    pages = [
+        PageOut(
+            url=pg["url"],
+            path=pg["path"],
+            title=pg.get("title"),
+            screenshot=f"{base}/static/{pg['rel_path']}",
+            accessibility_score=pg.get("accessibility_score"),
+            issues=pg.get("issues"),
+        )
+        for pg in result.get("pages", [])
+    ]
+
     # Persist the audit so the Studio + History endpoints can use it later.
     try:
         store.save_audit(token, {
@@ -92,6 +119,12 @@ async def create_screenshots(payload: ScreenshotRequest, request: Request) -> Sc
             "desktop_screenshot": desktop_url,
             "screenshots": [s.model_dump() for s in shots],
             "accessibility": result.get("accessibility"),
+            "pages": [p.model_dump() for p in pages],
+            "performance": result.get("performance"),
+            "seo": result.get("seo"),
+            "ux": result.get("ux"),
+            "structure": result.get("structure"),
+            "overall": result.get("overall"),
         })
     except Exception:
         pass
@@ -103,4 +136,10 @@ async def create_screenshots(payload: ScreenshotRequest, request: Request) -> Sc
         title=result["title"],
         screenshots=shots,
         accessibility=result.get("accessibility"),
+        pages=pages,
+        performance=result.get("performance"),
+        seo=result.get("seo"),
+        ux=result.get("ux"),
+        structure=result.get("structure"),
+        overall=result.get("overall"),
     )

@@ -43,6 +43,20 @@ _LOCATE_JS = """
 }
 """
 
+# Mark the problem element in RED for the BEFORE image (no fix applied — just an
+# annotation so the issue location is obvious even when the fix is non-visual).
+_HIGHLIGHT_JS = """
+(sel) => {
+  let el; try { el = document.querySelector(sel); } catch (e) { el = null; }
+  if (!el) return false;
+  el.scrollIntoView({ block: 'center', inline: 'center' });
+  el.style.setProperty('outline', '4px solid #fb7185', 'important');
+  el.style.setProperty('outline-offset', '3px', 'important');
+  el.style.setProperty('box-shadow', '0 0 0 9999px rgba(251,113,133,0.10), 0 0 18px rgba(251,113,133,0.65)', 'important');
+  return true;
+}
+"""
+
 # Apply the real fix for a given axe rule to the element, plus a visible marker.
 _APPLY_JS = r"""
 (args) => {
@@ -138,8 +152,11 @@ _APPLY_JS = r"""
   }
 
   // Visible marker so the change is locatable even when the fix is non-visual.
-  important('outline', el.style.outline && el.style.outline.includes('6366f1') ? el.style.outline : '3px solid #34d399');
-  important('outline-offset', '2px');
+  // Green = fixed; clears the red "problem" highlight from the before pass.
+  const isFocus = el.style.outline && el.style.outline.includes('6366f1');
+  important('outline', isFocus ? el.style.outline : '4px solid #34d399');
+  important('outline-offset', '3px');
+  important('box-shadow', '0 0 0 9999px rgba(52,211,153,0.08), 0 0 18px rgba(52,211,153,0.65)');
   el.setAttribute('data-uxsense-fixed', '1');
   const r = el.getBoundingClientRect();
   return { applied: true, notes, bbox: { x: r.x, y: r.y, w: r.width, h: r.height } };
@@ -202,9 +219,14 @@ async def render_preview(token: str, issue: dict) -> dict:
                     await ctx.close()
                     raise PreviewError("element_not_found")
                 bbox = located
-                await page.wait_for_timeout(150)
+                # Mark the problem element in red for the BEFORE image.
+                try:
+                    await page.evaluate(_HIGHLIGHT_JS, selector)
+                except Exception:
+                    pass
+                await page.wait_for_timeout(180)
 
-                # BEFORE (viewport, element centred)
+                # BEFORE (viewport, element centred, problem outlined in red)
                 await page.screenshot(path=str(out_dir / Path(before_rel).name), full_page=False)
 
                 # APPLY the real fix

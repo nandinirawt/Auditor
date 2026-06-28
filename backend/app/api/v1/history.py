@@ -39,6 +39,13 @@ def _summary(a: dict) -> dict:
     issues = (acc.get("stats") or {}).get("violations")
     if issues is None:
         issues = sum(counts.values()) if counts else 0
+    score = acc.get("score")
+    compliance = (acc.get("wcag") or {}).get("compliance")
+    overall = a.get("overall")
+    if overall is None:
+        overall = acc.get("overall")
+    if overall is None and score is not None:
+        overall = round(0.6 * score + 0.4 * (compliance if compliance is not None else score))
     return {
         "token": a.get("token"),
         "url": a.get("url"),
@@ -46,8 +53,9 @@ def _summary(a: dict) -> dict:
         "domain": a.get("domain"),
         "title": a.get("title"),
         "created_at": _created(a),
-        "accessibility_score": acc.get("score"),
-        "wcag_compliance": (acc.get("wcag") or {}).get("compliance"),
+        "overall": overall,
+        "accessibility_score": score,
+        "wcag_compliance": compliance,
         "issues": issues,
         "critical": counts.get("critical", 0),
         "screenshots": len(a.get("screenshots") or []),

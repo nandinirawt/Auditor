@@ -177,7 +177,7 @@ async def add_competitor(base_token: str, payload: CompetitorRequest, request: R
     if store.load_audit(base_token) is None:
         raise HTTPException(404, "Run your own audit first.")
     try:
-        result = await capture_screenshots(str(payload.url))
+        result = await capture_screenshots(str(payload.url), crawl=False)
     except CaptureError as exc:
         msg = str(exc)
         if "playwright_not_installed" in msg:

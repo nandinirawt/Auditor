@@ -9,7 +9,7 @@ import { useAuth } from "../../context/AuthContext";
 import { useCurrentAudit } from "../../context/AuditContext";
 import { useAuditsList } from "../../hooks/useAudits";
 import { sampleAudit } from "../../lib/mockData";
-import { scoreBand, cn } from "../../lib/utils";
+import { scoreBand, overallScore, cn } from "../../lib/utils";
 
 function timeAgo(iso) {
   if (!iso) return "";
@@ -43,7 +43,8 @@ export function Topbar({ onOpenSidebar }) {
   const ref = useRef(null);
   const auditRef = useRef(null);
 
-  const realScore = current?.accessibility?.score;
+  const acc = current?.accessibility;
+  const realScore = current?.overall ?? (acc ? (acc.overall ?? overallScore(acc.score, acc.wcag?.compliance)) : null);
   const band = scoreBand(realScore != null ? realScore : sampleAudit.scores.overall);
 
   useEffect(() => {
@@ -105,15 +106,15 @@ export function Topbar({ onOpenSidebar }) {
                     {audits.length === 0 ? "No audits yet. Run one to get started." : "No matches."}
                   </div>
                 ) : filtered.map((a) => {
-                  const b = scoreBand(a.accessibility_score ?? 0);
+                  const sc = a.overall ?? a.accessibility_score; const b = scoreBand(sc ?? 0);
                   const active = a.token === currentToken;
                   return (
                     <button key={a.token} onClick={() => pick(a.token)}
                       className={cn("flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left hover:bg-white/[0.04]",
                         active && "bg-iris/10")}>
                       <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full font-mono text-[11px] font-bold"
-                        style={{ color: a.accessibility_score != null ? b.color : "#64748B", background: `${a.accessibility_score != null ? b.color : "#64748B"}1f` }}>
-                        {a.accessibility_score ?? "—"}
+                        style={{ color: sc != null ? b.color : "#64748B", background: `${sc != null ? b.color : "#64748B"}1f` }}>
+                        {sc ?? "—"}
                       </span>
                       <div className="min-w-0 flex-1">
                         <div className="truncate text-sm text-content">{a.domain}</div>
@@ -145,7 +146,7 @@ export function Topbar({ onOpenSidebar }) {
             style={{ color: band.color, background: `${band.color}1f` }}>
             {realScore != null ? realScore : sampleAudit.scores.overall}
           </span>
-          <span className="text-xs text-content-muted">{realScore != null ? "Accessibility" : "Overall · sample"}</span>
+          <span className="text-xs text-content-muted">{realScore != null ? "Overall" : "Overall · sample"}</span>
         </div>
 
         <Button size="sm" onClick={() => navigate("/")} className="hidden sm:inline-flex">

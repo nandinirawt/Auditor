@@ -79,6 +79,15 @@ class Settings(BaseSettings):
     AI_MAX_TOKENS: int = 2048
     AI_TEMPERATURE: float = 0.2
 
+    # ---- Voice (smallest.ai Text-to-Speech) ----
+    # Redeem your promo code on the smallest.ai dashboard, then paste the API key
+    # it gives you here (or in .env as SMALLEST_API_KEY). Optional — audio is
+    # simply disabled if this is absent.
+    SMALLEST_API_KEY: Optional[str] = None
+    SMALLEST_TTS_URL: str = "https://api.smallest.ai/waves/v1/lightning-v3.1/get_speech"
+    SMALLEST_VOICE_ID: str = "magnus"
+    SMALLEST_SAMPLE_RATE: int = 24000
+
     # ---- Storage ----
     STORAGE_BACKEND: Literal["local", "s3"] = "local"
     STORAGE_LOCAL_DIR: str = "storage/screenshots"

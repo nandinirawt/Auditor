@@ -29,7 +29,6 @@ const groups = [
     label: "Workspace",
     items: [
       { to: "/dashboard/history", label: "Audit History", icon: History },
-      { to: "/dashboard/projects", label: "Projects", icon: FolderKanban },
       { to: "/dashboard/settings", label: "Settings", icon: SettingsIcon },
     ],
   },
