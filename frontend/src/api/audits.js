@@ -26,3 +26,8 @@ export async function getTrends() {
   const { data } = await api.get("/api/v1/audits/trends");
   return data; // { count, series: [...] }
 }
+
+export async function getWcag(token) {
+  const { data } = await api.get(`/api/v1/audits/${token}/wcag`);
+  return data; // { wcag, trend, score, domain }
+}

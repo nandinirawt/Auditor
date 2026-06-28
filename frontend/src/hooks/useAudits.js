@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { listAudits, getTrends } from "../api/audits";
+import { listAudits, getTrends, getWcag } from "../api/audits";
 
 export function useAuditsList() {
   return useQuery({
@@ -14,5 +14,13 @@ export function useAuditTrends() {
     queryKey: ["audits", "trends"],
     queryFn: getTrends,
     staleTime: 10_000,
+  });
+}
+
+export function useWcagReport(token) {
+  return useQuery({
+    queryKey: ["audits", "wcag", token],
+    queryFn: () => getWcag(token),
+    enabled: !!token,
   });
 }

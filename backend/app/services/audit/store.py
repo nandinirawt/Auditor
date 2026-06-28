@@ -11,6 +11,7 @@ from pathlib import Path
 _BASE = Path(__file__).resolve().parents[3] / "data"
 _AUDIT_DIR = _BASE / "audits"
 _PREVIEW_DIR = _BASE / "previews"
+_BENCH_DIR = _BASE / "benchmarks"
 
 
 def _safe(s: str) -> str:
@@ -82,6 +83,21 @@ def save_preview(token: str, issue_id: str, payload: dict) -> None:
 
 def load_preview(token: str, issue_id: str) -> dict | None:
     p = _PREVIEW_DIR / f"{_safe(token)}__{_safe(issue_id)}.json"
+    if not p.exists():
+        return None
+    try:
+        return json.loads(p.read_text(encoding="utf-8"))
+    except Exception:
+        return None
+
+
+def save_benchmark(base_token: str, payload: dict) -> None:
+    _BENCH_DIR.mkdir(parents=True, exist_ok=True)
+    (_BENCH_DIR / f"{_safe(base_token)}.json").write_text(json.dumps(payload), encoding="utf-8")
+
+
+def load_benchmark(base_token: str) -> dict | None:
+    p = _BENCH_DIR / f"{_safe(base_token)}.json"
     if not p.exists():
         return None
     try:

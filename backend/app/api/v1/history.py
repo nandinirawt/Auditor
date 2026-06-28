@@ -6,6 +6,7 @@ audit back into every page) comes from GET /audits/{token}.
 """
 from __future__ import annotations
 
+import re
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, HTTPException
@@ -13,6 +14,13 @@ from fastapi import APIRouter, HTTPException
 from app.services.audit import store
 
 router = APIRouter(prefix="/audits", tags=["history"])
+
+
+def _w3c_url(name: str) -> str | None:
+    if not name or name.startswith("Success criterion"):
+        return None
+    slug = re.sub(r"[^a-z0-9]+", "-", name.lower().replace("(", "").replace(")", "")).strip("-")
+    return f"https://www.w3.org/WAI/WCAG22/Understanding/{slug}.html"
 
 
 def _created(a: dict) -> str | None:
@@ -88,3 +96,62 @@ async def delete_audit(token: str):
     if not ok:
         raise HTTPException(404, "Audit not found.")
     return {"deleted": True, "token": token}
+
+
+@router.get("/{token}/wcag", summary="WCAG report for an audit, with trend vs previous")
+async def wcag_report(token: str):
+    audits = store.list_audits()
+    cur = next((a for a in audits if a.get("token") == token), None)
+    if cur is None:
+        cur = store.load_audit(token)
+        if cur is None:
+            raise HTTPException(404, "Audit not found.")
+    acc = cur.get("accessibility") or {}
+    wcag = dict(acc.get("wcag") or {})
+
+    # Enrich criteria with official W3C + Deque links (Deque from the matching rule).
+    help_by_sc: dict[str, str] = {}
+    for f in acc.get("findings") or []:
+        sc = f.get("wcag")
+        if sc and f.get("help") and sc not in help_by_sc:
+            help_by_sc[sc] = f.get("help")
+    crits = []
+    for c in wcag.get("criteria") or []:
+        c2 = dict(c)
+        link = _w3c_url(c2.get("name") or "")
+        if link:
+            c2["w3c_url"] = link
+        if c2.get("status") == "fail" and help_by_sc.get(c2.get("id")):
+            c2["deque_url"] = help_by_sc[c2["id"]]
+        crits.append(c2)
+    wcag["criteria"] = crits
+
+    # Trend vs the previous audit of the SAME domain.
+    trend = None
+    domain = cur.get("domain")
+    cur_m = cur.get("_mtime", 0)
+    prev = None
+    for a in audits:
+        if a.get("domain") == domain and a.get("_mtime", 0) < cur_m:
+            if prev is None or a.get("_mtime", 0) > prev.get("_mtime", 0):
+                prev = a
+    if prev:
+        pw = (prev.get("accessibility") or {}).get("wcag") or {}
+        prev_p = {p["label"]: p for p in (pw.get("principles") or [])}
+        per = []
+        for p in wcag.get("principles") or []:
+            pp = prev_p.get(p["label"])
+            if pp and pp.get("total") and p.get("total"):
+                cur_rate = p["passed"] / p["total"] * 100
+                prev_rate = pp["passed"] / pp["total"] * 100
+                per.append({"label": p["label"], "delta": round(cur_rate - prev_rate)})
+            else:
+                per.append({"label": p["label"], "delta": None})
+        trend = {
+            "prev_token": prev.get("token"),
+            "prev_date": _created(prev),
+            "compliance_delta": (wcag.get("compliance") or 0) - (pw.get("compliance") or 0),
+            "principles": per,
+        }
+
+    return {"wcag": wcag, "trend": trend, "score": acc.get("score"), "domain": domain}
