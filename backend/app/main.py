@@ -122,7 +122,7 @@ def create_app() -> FastAPI:
     def root():
         return {"message": f"{settings.PROJECT_NAME} API", "docs": "/docs"}
 
-    # Domain API.
+    # Domain API.heheh
     app.include_router(api_router, prefix=settings.API_V1_PREFIX)
 
     return app
